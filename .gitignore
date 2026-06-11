@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+node/data/
+*.db
+legacy/n8n/n8n_data/

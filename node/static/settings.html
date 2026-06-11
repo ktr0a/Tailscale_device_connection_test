@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tailnet Chat — Devices</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header id="topbar">
+    <span id="device-name">…</span>
+    <a href="/" class="nav-link">← Back to chat</a>
+  </header>
+  <main class="settings">
+    <section>
+      <h2>Devices on this tailnet</h2>
+      <p class="hint">Add every other device running a chat node. Use its Tailscale IP
+        (e.g. <code>100.x.y.z</code>) or MagicDNS hostname. Each device has a unique internal ID,
+        so duplicate names can't mix up storage — but you'll see a warning here if two devices
+        share a display name.</p>
+      <table id="peer-table">
+        <thead><tr><th></th><th>Name</th><th>Address</th><th>Last seen</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="no-peers" class="hint hidden">No devices configured yet.</p>
+      <button id="check-now">Ping &amp; sync all now</button>
+    </section>
+    <section>
+      <h2>Add a device</h2>
+      <form id="add-form" autocomplete="off">
+        <input id="peer-name" placeholder="Name (label only)" maxlength="64" required>
+        <input id="peer-host" placeholder="Tailscale IP / hostname" maxlength="253" required>
+        <input id="peer-port" type="number" value="8000" min="1" max="65535" required>
+        <button type="submit">Add</button>
+      </form>
+      <p id="add-error" class="error hidden"></p>
+    </section>
+  </main>
+  <script src="/static/settings.js"></script>
+</body>
+</html>
