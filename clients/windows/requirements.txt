@@ -1,0 +1,2 @@
+-r ../../node/requirements.txt
+pywebview>=5.0

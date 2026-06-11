@@ -1,0 +1,36 @@
+name: Build native clients
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "clients/**"
+      - "node/**"
+      - ".github/workflows/build-clients.yml"
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build APK
+        run: bash clients/android/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TailnetChat-android
+          path: dist/TailnetChat-debug.apk
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build EXE
+        shell: cmd
+        run: clients\windows\build.bat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TailnetChat-windows
+          path: dist/TailnetChat.exe

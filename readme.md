@@ -44,6 +44,21 @@ Each message is `{id, device_id, device, message, time}`:
   Tailscale devices are normally NTP-synced; heavy clock skew would only
   affect display order, never data integrity.
 
+## Native apps (no browser, no terminal)
+
+| Platform | What it is | Where |
+|----------|-----------|-------|
+| **Windows** | `TailnetChat.exe` — runs the **full node** on the PC and shows the chat in a native window. First-run setup screen, Tailscale health check, single file. | [`clients/windows/`](clients/windows/) — build with `build.bat` or grab the CI artifact |
+| **Android** | `TailnetChat-debug.apk` — native app that connects to a node already on your tailnet (e.g. the Pi). Checks Tailscale app, VPN state, and node reachability before opening the chat. | [`clients/android/`](clients/android/) — prebuilt APK in [`dist/`](dist/), or `build.sh` |
+
+Both are also built automatically by GitHub Actions ("Build native clients"
+workflow) — download the `TailnetChat-windows` / `TailnetChat-android`
+artifacts from the latest run. Both apps include **Tailscale operation
+checks**: the Windows launcher queries `tailscale status` and shows
+connect/login problems before starting; the Android app verifies the
+Tailscale app is installed, the VPN is up, and the node answers, with
+clear fix-it buttons when something is off.
+
 ## Setup (repeat on every device)
 
 Requirements: Tailscale up and authenticated, Python 3.10+.
@@ -129,6 +144,8 @@ development — see `legacy/README.md`.
 
 ## Roadmap ideas
 
+- Full node on Android (own chatlog + identity on the phone, instead of the
+  current connect-to-a-node app)
 - Message delivery/read indicators (per-device "has seen up to" markers)
 - Push-style updates in the UI (WebSocket/SSE instead of polling)
 - Auth on the web UI itself
