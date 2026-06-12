@@ -44,6 +44,13 @@ def auth(key: str = Security(api_key_header)):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+# --- Pydantic v1/v2 compat ---
+
+def model_to_dict(m):
+    """pydantic v1/v2 compatibility."""
+    return m.model_dump() if hasattr(m, "model_dump") else m.dict()
+
+
 # --- Models ---
 
 class ChatMessage(BaseModel):
@@ -123,7 +130,7 @@ async def sync_with_peer(client: httpx.AsyncClient, peer: dict) -> None:
     payload = {"device_id": store.device_id, "device": DEVICE_NAME, "messages": store.all_messages()}
     resp = await client.post(f"{peer_url(peer)}/api/sync", json=payload, headers=AUTH_HEADERS, timeout=PEER_TIMEOUT * 3)
     resp.raise_for_status()
-    incoming = [ChatMessage(**m).model_dump() for m in resp.json().get("messages", [])]
+    incoming = [model_to_dict(ChatMessage(**m)) for m in resp.json().get("messages", [])]
     store.add_messages(incoming)
 
 
@@ -198,14 +205,14 @@ async def api_ping():
 
 @app.post("/api/messages", tags=["Peer API"], dependencies=[Depends(auth)])
 async def api_receive_message(msg: ChatMessage):
-    added = store.add_messages([msg.model_dump()])
+    added = store.add_messages([model_to_dict(msg)])
     touch_device(msg.device_id)
     return {"status": "ok", "new": len(added)}
 
 
 @app.post("/api/sync", tags=["Peer API"], dependencies=[Depends(auth)])
 async def api_sync(req: SyncRequest):
-    store.add_messages([m.model_dump() for m in req.messages])
+    store.add_messages([model_to_dict(m) for m in req.messages])
     caller_has = {m.id for m in req.messages}
     missing = [m for m in store.all_messages() if m["id"] not in caller_has]
     touch_device(req.device_id)
@@ -265,11 +272,11 @@ async def local_list_peers():
 @app.post("/local/peers", tags=["Local"])
 async def local_add_peer(peer: PeerIn):
     try:
-        store.add_peer(peer.model_dump())
+        store.add_peer(model_to_dict(peer))
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     asyncio.create_task(check_all_peers())
-    return {"status": "added", "peer": peer.model_dump()}
+    return {"status": "added", "peer": model_to_dict(peer)}
 
 
 @app.delete("/local/peers", tags=["Local"])

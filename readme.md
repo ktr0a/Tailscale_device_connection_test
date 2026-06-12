@@ -50,6 +50,7 @@ Each message is `{id, device_id, device, message, time}`:
 |----------|-----------|-------|
 | **Windows** | `TailnetChat.exe` — runs the **full node** on the PC and shows the chat in a native window. First-run setup screen, Tailscale health check, single file. | [`clients/windows/`](clients/windows/) — build with `build.bat` or grab the CI artifact |
 | **Android** | `TailnetChat-debug.apk` — native app that connects to a node already on your tailnet (e.g. the Pi). Checks Tailscale app, VPN state, and node reachability before opening the chat. | [`clients/android/`](clients/android/) — prebuilt APK in [`dist/`](dist/), or `build.sh` |
+| **Android (full node)** | `TailnetChat-node-debug.apk` — bundles CPython + the full node via python-for-android. The phone stores its own chatlog + identity and is a real peer. First-run setup screen (device name + shared key); add peers via the in-app Devices page. | [`clients/android-node/`](clients/android-node/) — CI artifact `TailnetChat-node-android`, or `build.sh` (Linux + buildozer) |
 
 Both are also built automatically by GitHub Actions ("Build native clients"
 workflow) — download the `TailnetChat-windows` / `TailnetChat-android`
@@ -144,8 +145,10 @@ development — see `legacy/README.md`.
 
 ## Roadmap ideas
 
-- Full node on Android (own chatlog + identity on the phone, instead of the
-  current connect-to-a-node app)
+- Full node on Android — now exists via [`clients/android-node/`](clients/android-node/)
+  (CPython + FastAPI bundled with python-for-android/buildozer). Remaining:
+  background foreground-service so the node stays reachable while the app is
+  in the background.
 - Message delivery/read indicators (per-device "has seen up to" markers)
 - Push-style updates in the UI (WebSocket/SSE instead of polling)
 - Auth on the web UI itself

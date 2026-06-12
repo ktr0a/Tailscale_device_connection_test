@@ -42,3 +42,8 @@ doesn't keep its own copy of the chatlog, and messages you send from the
 phone are stored and labeled under the node device you're connected to
 (e.g. `raspberry-pi`). Running a full Python node on Android is on the
 roadmap; until then, connect the phone to your always-on device.
+
+If you want the phone to be a **full peer** with its own chatlog and identity,
+see [`clients/android-node/`](../android-node/) — it bundles CPython and the
+complete node using python-for-android, with a first-run setup screen for the
+device name and shared key.
