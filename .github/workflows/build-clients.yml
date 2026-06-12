@@ -1,0 +1,63 @@
+name: Build native clients
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "clients/**"
+      - "node/**"
+      - ".github/workflows/build-clients.yml"
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build APK
+        run: bash clients/android/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TailnetChat-android
+          path: dist/TailnetChat-debug.apk
+
+  android-node-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
+      - name: Install buildozer and Cython
+        run: pip install 'buildozer==1.5.0' 'cython<3'
+      - name: Cache buildozer downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            clients/android-node/.buildozer
+          key: buildozer-${{ hashFiles('clients/android-node/buildozer.spec') }}
+      - name: Build android-node APK
+        run: bash clients/android-node/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TailnetChat-node-android
+          path: dist/TailnetChat-node-debug.apk
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build EXE
+        shell: cmd
+        run: clients\windows\build.bat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TailnetChat-windows
+          path: dist/TailnetChat.exe

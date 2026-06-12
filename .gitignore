@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+node/data/
+*.db
+legacy/n8n/n8n_data/
+clients/android/build/
+clients/windows/build/
+clients/windows/dist/
+clients/windows/*.spec
+dist/*.idsig
+clients/android-node/node/
+clients/android-node/icon.png
+clients/android-node/.buildozer/
+clients/android-node/bin/

@@ -1,146 +1,122 @@
-# Tailnet Orchestration Hub
+# Tailnet Chat
 
-A private orchestration system built over Tailscale. It provides a secure, internal-only control plane that connects devices across your Tailnet, enabling automated workflows and remote command execution without exposing any public ports.
+A private, serverless group chat for your own devices, running entirely over
+[Tailscale](https://tailscale.com). Every device (up to ~10) runs the same
+small node app and joins one big group chat. No cloud, no public ports, no
+single point of failure.
 
-## Architecture
+## How it works
 
-The system consists of three main components communicating exclusively over the Tailnet:
+There is **no central server and no single source of truth**. Each node:
 
-| Component | Recommended Device | Port | Role |
-|-----------|--------------------|------|------|
-| **Hub** | Raspberry Pi | 8000 | FastAPI device registry, command router, and manual control panel (Swagger UI). |
-| **Agent** | Target PC / Laptop | 8001 | Listens for and executes commands from the Hub. Reports heartbeat every 60s. |
-| **n8n** | Raspberry Pi | 5678 | Workflow automation platform for smart triggers and scheduled tasks. |
+- keeps its own full copy of the chatlog as JSON on disk (`node/data/chatlog.json`);
+- **saves locally before sending** — a message survives even if every other
+  device is offline and the sender shuts down right after;
+- fans every sent message out to all configured peers immediately;
+- **syncs on startup and every ping cycle**: it exchanges logs with each
+  reachable peer and both end up with the union. If device A has messages
+  from 1, 3 and 5pm and device B has 2, 3, 4 and 5pm, both converge to
+  1–5pm automatically;
+- **pings all peers every 3 minutes** (configurable) and shows offline
+  devices in the chat's top bar.
 
 ```text
-Phone / Browser
-      │
-      ├──► http://[pi]:8000/docs   (manual control — Swagger UI)
-      └──► http://[pi]:5678        (automated workflows — n8n)
-                │
-                ▼
-         [Pi Hub :8000]  ◄── agents heartbeat every 60s
-                │
-                ├──► POST http://[pc]:8001/execute
-                └──► POST http://[laptop]:8001/execute
+[laptop :8000] ◄──────► [workstation :8000]
+       ▲  ▲                  ▲
+       │  └───── sync ───────┤
+       ▼                     ▼
+        [raspberry pi :8000]      ← every node is identical
 ```
 
-## Features
-- **Zero Public Ports:** All traffic stays within the secure Tailscale network.
-- **Automated Discovery:** Agents regularly heartbeat to the Hub, maintaining an up-to-date registry of online devices.
-- **RESTful API:** Control devices manually via the Hub's Swagger UI or programmatically via n8n workflows.
-- **Workflow Automation:** Integrate with n8n to build custom automation sequences across your Tailnet.
+### Messages and identity
 
-## Prerequisites
-- Tailscale installed and authenticated (`tailscale up`) on all devices.
-- Python 3.10+ installed on both the Hub and Agent machines.
-- Docker and Docker Compose installed on the Hub machine (for running n8n).
+Each message is `{id, device_id, device, message, time}`:
 
-## Installation
+- `id` — a random UUID. Merging is a *union by id*, so duplicates are
+  impossible even if the same message arrives via fanout *and* sync.
+- `device_id` — a permanent random ID generated on each device's first run
+  (stored in `node/data/identity.json`). `device` is just a display label,
+  so two devices accidentally configured with the same name **cannot**
+  corrupt or mix up storage. The settings page warns you when it detects a
+  name conflict, or when a configured address turns out to be the device itself.
+- `time` — unix timestamp from the sender's clock. Messages are displayed
+  sorted by time (ties broken by id), so all nodes show the same order.
+  Tailscale devices are normally NTP-synced; heavy clock skew would only
+  affect display order, never data integrity.
 
-### 1. Generate a Shared Secret
-Generate a single shared secret to be used for authentication between the Hub, Agents, and n8n. Run this once and save it:
+## Native apps (no browser, no terminal)
+
+| Platform | What it is | Where |
+|----------|-----------|-------|
+| **Windows** | `TailnetChat.exe` — runs the **full node** on the PC and shows the chat in a native window. First-run setup screen, Tailscale health check, single file. | [`clients/windows/`](clients/windows/) — build with `build.bat` or grab the CI artifact |
+| **Android** | `TailnetChat-debug.apk` — native app that connects to a node already on your tailnet (e.g. the Pi). Checks Tailscale app, VPN state, and node reachability before opening the chat. | [`clients/android/`](clients/android/) — prebuilt APK in [`dist/`](dist/), or `build.sh` |
+| **Android (full node)** | `TailnetChat-node-debug.apk` — bundles CPython + the full node via python-for-android. The phone stores its own chatlog + identity and is a real peer. First-run setup screen (device name + shared key); add peers via the in-app Devices page. | [`clients/android-node/`](clients/android-node/) — CI artifact `TailnetChat-node-android`, or `build.sh` (Linux + buildozer) |
+
+Both are also built automatically by GitHub Actions ("Build native clients"
+workflow) — download the `TailnetChat-windows` / `TailnetChat-android`
+artifacts from the latest run. Both apps include **Tailscale operation
+checks**: the Windows launcher queries `tailscale status` and shows
+connect/login problems before starting; the Android app verifies the
+Tailscale app is installed, the VPN is up, and the node answers, with
+clear fix-it buttons when something is off.
+
+## Setup (repeat on every device)
+
+Requirements: Tailscale up and authenticated, Python 3.10+.
+
 ```bash
-openssl rand -hex 32
+cd node
+pip install -r requirements.txt
+cp .env.example .env   # then edit it
 ```
 
-### 2. Hub Setup (Central Controller)
-The Hub acts as the central device registry and command router. It is typically hosted on an always-on device like a Raspberry Pi.
+`.env` per device:
 
-1. Navigate to the `hub/` directory.
-2. Create a `.env` file and set the `API_KEY`:
-   ```bash
-   API_KEY=your_generated_secret
-   ```
-3. Install dependencies: `pip install fastapi uvicorn httpx pydantic`
-4. Start the Hub:
-   ```bash
-   ./start.sh
-   # Or manually: python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
-   ```
+```bash
+API_KEY=shared_secret_same_on_all_devices   # generate once: openssl rand -hex 32
+DEVICE_NAME=laptop                          # unique label for this device
+PORT=8000
+PING_INTERVAL=180
+```
 
-### 3. Agent Setup (Target Devices)
-The Agent runs on any device that you want to control or monitor.
+Start the node:
 
-1. Navigate to the `agent/` directory on the target machine.
-2. Create a `.env` file with the required configuration:
-   ```bash
-   API_KEY=your_generated_secret
-   HUB_URL=http://<HUB-TAILSCALE-IP>:8000
-   DEVICE_NAME=my_workstation
-   ```
-3. Start the Agent:
-   ```bash
-   ./start.sh
-   # Or manually on Windows: python agent.py
-   ```
+- **Linux/macOS:** `./start.sh`
+- **Windows:** double-click `start.bat`
 
-### 4. n8n Setup (Workflow Automation)
-n8n orchestrates workflows and can interact with the Hub.
+Then open `http://<this-device-tailscale-ip>:8000` in a browser:
 
-1. Navigate to the `n8n/` directory.
-2. Start the Docker container:
-   ```bash
-   docker compose up -d
-   ```
-3. Access n8n in your browser at `http://<HUB-TAILSCALE-IP>:5678`.
+- **Chat page (`/`)** — the group chat. Top bar shows every configured
+  device with a green/red dot; offline devices are also listed in a banner.
+- **Devices page (`/settings`)** — add each other device by name +
+  Tailscale IP (or MagicDNS hostname) + port. Do this on every device so
+  everyone knows everyone. A "Ping & sync all now" button forces an
+  immediate reconciliation.
 
-## Usage & Integration
+## Security
 
-### Manual Testing and Control
-1. The Hub exposes a built-in Swagger UI. Visit it in your browser at `http://<HUB-TAILSCALE-IP>:8000/docs`.
-2. Ensure you authenticate by entering `your_generated_secret` into the `X-API-Key` section.
-3. You can use `GET /status` to check the Hub health.
-4. You can use `GET /devices` to see all online Agents.
-5. You can use `POST /send` to send remote commands to Agents.
+- Node-to-node traffic (`/api/*`) requires the shared `API_KEY`
+  (`X-API-Key` header).
+- The web UI (`/` and `/local/*`) is unauthenticated and trusts the
+  tailnet: anyone who can reach the port can read the chat. Keep the port
+  off the public internet and ideally bind it to the Tailscale interface:
 
-### Triggering Actions with n8n
-To create automated workflows that trigger actions on your nodes:
-
-1. Create a **Webhook** node in n8n (or any trigger of your choice).
-2. Connect it to an **HTTP Request** node.
-3. Configure the HTTP node to interact with the Hub:
-    - **Method:** POST
-    - **URL:** `http://localhost:8000/send` (if n8n and Hub are on the same machine)
-    - **Headers:** `X-API-Key: your_generated_secret`
-    - **Body (JSON):**
-      ```json
-      {
-        "receiver": "my_workstation",
-        "command": "echo 'Triggered via n8n'"
-      }
-      ```
-4. This node will now remotely execute the shell command on `my_workstation` over Tailscale.
-
-## Security & Firewall
-For maximum security, limit traffic explicitly to the Tailscale interface (`tailscale0`).
-
-**Hub Device:**
 ```bash
 sudo ufw allow in on tailscale0 to any port 8000
-sudo ufw allow in on tailscale0 to any port 5678
 ```
 
-**Agent Node (Linux):**
-```bash
-sudo ufw allow in on tailscale0 to any port 8001
-```
+## Persistence (optional)
 
-## System Services (Persistence)
+Run the node as a systemd service so it survives reboots:
 
-For continuous operation across device restarts, configure systemd services. 
-
-Sample configurations can be created pointing to your clone directory:
-
-**`tailnet-hub.service`** (Hub Node):
 ```ini
 [Unit]
-Description=Tailnet Hub
+Description=Tailnet Chat Node
 After=network.target
 
 [Service]
-WorkingDirectory=/path/to/tailnet-automation/hub
-EnvironmentFile=/path/to/tailnet-automation/hub/.env
+WorkingDirectory=/path/to/repo/node
+EnvironmentFile=/path/to/repo/node/.env
 ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 
@@ -148,24 +124,33 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-**`tailnet-agent.service`** (Agent Nodes):
-```ini
-[Unit]
-Description=Tailnet Node Agent
-After=network.target
+## Development
 
-[Service]
-WorkingDirectory=/path/to/tailnet-automation/agent
-EnvironmentFile=/path/to/tailnet-automation/agent/.env
-ExecStart=/usr/bin/python3 agent.py
-Restart=always
+- `node/main.py` — FastAPI app: peer API, local UI API, fanout, ping/sync loop.
+- `node/storage.py` — atomic JSON persistence (chatlog, peers, identity).
+- `node/static/` — the web UI (vanilla HTML/JS/CSS).
+- `node/smoke_test.py` — end-to-end test that spins up two nodes locally and
+  verifies fanout, offline write-ahead saving, catch-up sync after restart,
+  divergent-history merge, dedup, and liveness tracking:
 
-[Install]
-WantedBy=multi-user.target
-```
+  ```bash
+  cd node && python3 smoke_test.py
+  ```
 
-Enable and start the services:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now tailnet-hub tailnet-agent
-```
+### Legacy
+
+`legacy/` contains the original Tailnet Orchestration Hub (remote command
+execution via hub/agents + n8n). It is deactivated but kept for future
+development — see `legacy/README.md`.
+
+## Roadmap ideas
+
+- Full node on Android — now exists via [`clients/android-node/`](clients/android-node/)
+  (CPython + FastAPI bundled with python-for-android/buildozer). Remaining:
+  background foreground-service so the node stays reachable while the app is
+  in the background.
+- Message delivery/read indicators (per-device "has seen up to" markers)
+- Push-style updates in the UI (WebSocket/SSE instead of polling)
+- Auth on the web UI itself
+- Image/file attachments
+- Reintegrate legacy remote-command execution as chat commands

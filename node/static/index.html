@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tailnet Chat</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header id="topbar">
+    <span id="device-name">…</span>
+    <div id="peer-chips"></div>
+    <a href="/settings" class="nav-link">Devices ⚙</a>
+  </header>
+  <div id="banner" class="hidden"></div>
+  <main id="messages"></main>
+  <footer>
+    <form id="send-form" autocomplete="off">
+      <input id="msg-input" placeholder="Type a message…" maxlength="4000" autofocus>
+      <button type="submit">Send</button>
+    </form>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
