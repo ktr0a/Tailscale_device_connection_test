@@ -52,13 +52,15 @@ Each message is `{id, device_id, device, message, time}`:
 | **Android** | `TailnetChat-debug.apk` — native app that connects to a node already on your tailnet (e.g. the Pi). Checks Tailscale app, VPN state, and node reachability before opening the chat. | [`clients/android/`](clients/android/) — prebuilt APK in [`dist/`](dist/), or `build.sh` |
 | **Android (full node)** | `TailnetChat-node-debug.apk` — bundles CPython + the full node via python-for-android. The phone stores its own chatlog + identity and is a real peer. First-run setup screen (device name + shared key); add peers via the in-app Devices page. | [`clients/android-node/`](clients/android-node/) — CI artifact `TailnetChat-node-android`, or `build.sh` (Linux + buildozer) |
 
-Both are also built automatically by GitHub Actions ("Build native clients"
-workflow) — download the `TailnetChat-windows` / `TailnetChat-android`
-artifacts from the latest run. Both apps include **Tailscale operation
-checks**: the Windows launcher queries `tailscale status` and shows
-connect/login problems before starting; the Android app verifies the
-Tailscale app is installed, the VPN is up, and the node answers, with
-clear fix-it buttons when something is off.
+All three are built automatically by GitHub Actions ("Build native clients"
+workflow) — download the `TailnetChat-windows`, `TailnetChat-android`, and
+`TailnetChat-node-android` artifacts from the latest run. The Windows app and
+the thin Android app include **Tailscale operation checks**: the Windows
+launcher queries `tailscale status` and shows connect/login problems before
+starting; the thin Android app verifies the Tailscale app is installed, the
+VPN is up, and the target node answers, with clear fix-it buttons when
+something is off. (The full-node Android app relies on the phone's Tailscale
+VPN being connected, the same as any other node.)
 
 ## Setup (repeat on every device)
 
