@@ -40,6 +40,24 @@ jobs:
             ~/.buildozer
             clients/android-node/.buildozer
           key: buildozer-${{ hashFiles('clients/android-node/buildozer.spec') }}
+      - name: Pre-seed Android SDK for buildozer
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          mkdir -p "$SDK_ROOT/licenses"
+          # carry over the runner's already-accepted license hashes
+          cp "$ANDROID_HOME"/licenses/* "$SDK_ROOT/licenses/" 2>/dev/null || true
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null 2>&1 || true
+          # known-good build-tools (has aidl) so buildozer uses these instead of
+          # installing the newest available version (e.g. 37.0.0)
+          if [ ! -d "$SDK_ROOT/build-tools/34.0.0" ]; then
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          fi
+          # buildozer 1.5.0 expects sdkmanager at <sdk>/tools/bin/sdkmanager;
+          # create that path as a symlink so it works when the SDK dir already exists
+          mkdir -p "$SDK_ROOT/tools/bin"
+          ln -sf "$SDKMANAGER" "$SDK_ROOT/tools/bin/sdkmanager"
       - name: Build android-node APK
         run: bash clients/android-node/build.sh
       - uses: actions/upload-artifact@v4
