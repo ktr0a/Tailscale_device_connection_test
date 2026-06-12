@@ -1,5 +1,7 @@
 # Tailnet Chat
 
+> **Vibecoded.** This project was built with [Claude Code](https://claude.ai/code) through natural-language conversation — no manual coding.
+
 A private, serverless group chat for your own devices, running entirely over
 [Tailscale](https://tailscale.com). Every device (up to ~10) runs the same
 small node app and joins one big group chat. No cloud, no public ports, no
