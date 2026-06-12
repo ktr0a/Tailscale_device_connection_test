@@ -30,7 +30,7 @@ jobs:
       - name: Install system build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf automake autopoint libtool libtool-bin libltdl-dev m4 patch make pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
       - name: Install buildozer and Cython
         run: pip install 'buildozer==1.5.0' 'cython<3'
       - name: Cache buildozer downloads
@@ -40,6 +40,33 @@ jobs:
             ~/.buildozer
             clients/android-node/.buildozer
           key: buildozer-${{ hashFiles('clients/android-node/buildozer.spec') }}
+      - name: Pre-seed Android SDK for buildozer
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          mkdir -p "$SDK_ROOT/licenses"
+          # carry over the runner's already-accepted license hashes
+          cp "$ANDROID_HOME"/licenses/* "$SDK_ROOT/licenses/" 2>/dev/null || true
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null 2>&1 || true
+          # known-good build-tools (has aidl) so buildozer uses these instead of
+          # installing the newest available version (e.g. 37.0.0)
+          if [ ! -d "$SDK_ROOT/build-tools/34.0.0" ]; then
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          fi
+          # p4a (pythonforandroid/build.py get_targets()) looks for avdmanager at
+          # <sdk>/cmdline-tools/latest/bin/avdmanager first; install the real
+          # cmdline-tools package so both avdmanager and sdkmanager exist there.
+          # sdkmanager installs "cmdline-tools;latest" into $SDK_ROOT/cmdline-tools/latest
+          # (package path maps to directory path with ";" -> "/", standard sdkmanager
+          # convention), giving us cmdline-tools/latest/bin/{avdmanager,sdkmanager}.
+          if [ ! -d "$SDK_ROOT/cmdline-tools/latest" ]; then
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" "cmdline-tools;latest"
+          fi
+          # buildozer 1.5.0 expects sdkmanager at <sdk>/tools/bin/sdkmanager;
+          # repoint to the SDK-local binary so the cached SDK is self-contained
+          mkdir -p "$SDK_ROOT/tools/bin"
+          ln -sf "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$SDK_ROOT/tools/bin/sdkmanager"
       - name: Build android-node APK
         run: bash clients/android-node/build.sh
       - uses: actions/upload-artifact@v4

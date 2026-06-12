@@ -17,6 +17,12 @@ android.permissions = INTERNET,ACCESS_NETWORK_STATE
 android.api = 34
 android.minapi = 24
 android.archs = arm64-v8a,armeabi-v7a
+# Automatically accept SDK license agreements in non-interactive CI environments.
+android.accept_sdk_license = True
+# Skip auto-update so buildozer uses the pre-seeded build-tools 34.0.0 rather
+# than upgrading to the newest available version (e.g. 37.0.0) which has known
+# aidl compatibility issues with buildozer 1.5.0.
+android.skip_update = True
 p4a.bootstrap = webview
 p4a.port = 8000
 
