@@ -4,6 +4,7 @@ package.name = tailnetchatnode
 package.domain = dev.tailnet
 source.dir = .
 source.include_exts = py,html,css,js,png,json
+source.exclude_dirs = p4a-recipes,bin,data-android
 version = 0.1.0
 icon.filename = %(source.dir)s/icon.png
 orientation = portrait
@@ -52,6 +53,7 @@ android.accept_sdk_license = True
 android.skip_update = True
 p4a.bootstrap = webview
 p4a.port = 8000
+p4a.local_recipes = ./p4a-recipes
 
 [buildozer]
 log_level = 2
